@@ -52,7 +52,7 @@ function App() {
         formData.append('videoLink', videoLink);
       }
 
-      const response = await fetch('/api/go-live', {
+      const response = await fetch('http://localhost:5000/api/go-live', {
         method: 'POST',
         body: formData,
       });
@@ -72,7 +72,7 @@ function App() {
     try {
       setStreamingStatus({ status: 'stopping', message: 'Stopping stream...' });
       
-      const response = await fetch('/api/stop', {
+      const response = await fetch('http://localhost:5000/api/stop', {
         method: 'POST',
       });
 
