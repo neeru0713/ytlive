@@ -93,7 +93,8 @@ router.post('/login', async (req, res) => {
         username: user.username,
         email: user.email,
         streamKey: user.streamKey,
-        streamUrl: user.streamUrl
+        streamUrl: user.streamUrl,
+        isAdmin: user.isAdmin
       }
     });
   } catch (error) {

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Play, Square, AlertCircle, CheckCircle, Clock, Video, Link, Youtube, LogOut, Settings } from 'lucide-react';
+import { Upload, Play, Square, AlertCircle, CheckCircle, Clock, Video, Link, Youtube, LogOut, Settings, Shield } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthForm from './components/AuthForm';
 import AdminDashboard from './components/AdminDashboard';
