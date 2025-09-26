@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Play, Square, AlertCircle, CheckCircle, Clock, Video, Link, Youtube } from 'lucide-react';
+import { Upload, Play, Square, AlertCircle, CheckCircle, Clock, Video, Link, Youtube, LogOut, Settings } from 'lucide-react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import AuthForm from './components/AuthForm';
 
 interface StreamingStatus {
   status: 'idle' | 'uploading' | 'starting' | 'live' | 'stopping' | 'error';
@@ -7,7 +9,8 @@ interface StreamingStatus {
   progress?: number;
 }
 
-function App() {
+function StreamingApp() {
+  const { user, logout, updateStreamSettings, token } = useAuth();
   const [streamUrl, setStreamUrl] = useState('rtmp://a.rtmp.youtube.com/live2/');
   const [streamKey, setStreamKey] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -15,6 +18,15 @@ function App() {
   const [useFile, setUseFile] = useState(true);
   const [streamingStatus, setStreamingStatus] = useState<StreamingStatus>({ status: 'idle' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Initialize user settings
+  React.useEffect(() => {
+    if (user) {
+      setStreamUrl(user.streamUrl || 'rtmp://a.rtmp.youtube.com/live2/');
+      setStreamKey(user.streamKey || '');
+    }
+  }, [user]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -52,8 +64,11 @@ function App() {
         formData.append('videoLink', videoLink);
       }
 
-      const response = await fetch('/api/go-live', {
+      const response = await fetch('http://localhost:3001/api/go-live', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
         body: formData,
       });
 
@@ -72,8 +87,11 @@ function App() {
     try {
       setStreamingStatus({ status: 'stopping', message: 'Stopping stream...' });
       
-      const response = await fetch('/api/stop', {
+      const response = await fetch('http://localhost:3001/api/stop', {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       if (response.ok) {
@@ -83,6 +101,15 @@ function App() {
       }
     } catch (error) {
       setStreamingStatus({ status: 'error', message: 'Network error occurred' });
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      await updateStreamSettings(streamKey, streamUrl);
+      setShowSettings(false);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
     }
   };
 
@@ -121,14 +148,79 @@ function App() {
       {/* Header */}
       <div className="bg-black/50 backdrop-blur-sm border-b border-gray-700">
         <div className="max-w-4xl mx-auto px-6 py-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
             <Youtube className="w-8 h-8 text-red-500" />
             <h1 className="text-2xl font-bold bg-gradient-to-r from-red-500 to-pink-500 bg-clip-text text-transparent">
               YouTube Live Streamer
             </h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-gray-300">Welcome, {user?.username}</span>
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className="p-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+              <button
+                onClick={logout}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center px-6">
+          <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 max-w-md w-full">
+            <h2 className="text-xl font-semibold text-white mb-4">Stream Settings</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Stream URL
+                </label>
+                <input
+                  type="text"
+                  value={streamUrl}
+                  onChange={(e) => setStreamUrl(e.target.value)}
+                  className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Stream Key
+                </label>
+                <input
+                  type="password"
+                  value={streamKey}
+                  onChange={(e) => setStreamKey(e.target.value)}
+                  className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200"
+                />
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleSaveSettings}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -143,12 +235,12 @@ function App() {
               {/* Stream URL */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Stream URL
+                  Stream URL (saved in settings)
                 </label>
                 <input
                   type="text"
                   value={streamUrl}
-                  onChange={(e) => setStreamUrl(e.target.value)}
+                  readOnly
                   className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   placeholder="rtmp://a.rtmp.youtube.com/live2/"
                 />
@@ -157,15 +249,18 @@ function App() {
               {/* Stream Key */}
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Stream Key *
+                  Stream Key * (saved in settings)
                 </label>
                 <input
                   type="password"
                   value={streamKey}
-                  onChange={(e) => setStreamKey(e.target.value)}
+                  readOnly
                   className="w-full bg-gray-700/50 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   placeholder="Your YouTube stream key"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Use the settings button to update your stream key
+                </p>
               </div>
 
               {/* Video Source Toggle */}
@@ -308,7 +403,7 @@ function App() {
             <div className="mt-8 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
               <h3 className="text-sm font-medium text-blue-300 mb-2">Instructions:</h3>
               <ul className="text-xs text-blue-200 space-y-1">
-                <li>• Get your stream key from YouTube Studio</li>
+                <li>• Update your stream key in settings (from YouTube Studio)</li>
                 <li>• Upload a video file or provide a direct video URL</li>
                 <li>• Click "Go Live" to start streaming</li>
                 <li>• Monitor the status for real-time updates</li>
@@ -319,6 +414,39 @@ function App() {
       </div>
     </div>
   );
+}
+
+function App() {
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+
+  return (
+    <AuthProvider>
+      <AuthContent authMode={authMode} setAuthMode={setAuthMode} />
+    </AuthProvider>
+  );
+}
+
+function AuthContent({ authMode, setAuthMode }: { authMode: 'login' | 'register', setAuthMode: (mode: 'login' | 'register') => void }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <AuthForm 
+        mode={authMode} 
+        onToggleMode={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} 
+      />
+    );
+  }
+
+  return <StreamingApp />;
 }
 
 export default App;

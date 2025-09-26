@@ -4,6 +4,12 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
+const mongoose = require('mongoose');
+require('dotenv').config();
+
+// Import routes and middleware
+const authRoutes = require('./routes/auth');
+const auth = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -15,6 +21,17 @@ let streamStatus = 'idle';
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/youtube-streaming', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('Connected to MongoDB'))
+.catch(err => console.error('MongoDB connection error:', err));
+
+// Routes
+app.use('/api/auth', authRoutes);
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -150,7 +167,7 @@ const startFFmpegStream = (inputSource, streamUrl, streamKey) => {
 };
 
 // Route: Start streaming
-app.post('/api/go-live', upload.single('videoFile'), async (req, res) => {
+app.post('/api/go-live', auth, upload.single('videoFile'), async (req, res) => {
   try {
     const { streamUrl, streamKey, videoLink } = req.body;
     
@@ -204,7 +221,7 @@ app.post('/api/go-live', upload.single('videoFile'), async (req, res) => {
 });
 
 // Route: Stop streaming
-app.post('/api/stop', async (req, res) => {
+app.post('/api/stop', auth, async (req, res) => {
   try {
     streamStatus = 'stopping';
     await killStreamProcess();
@@ -240,7 +257,7 @@ app.post('/api/stop', async (req, res) => {
 });
 
 // Route: Get stream status
-app.get('/api/status', (req, res) => {
+app.get('/api/status', auth, (req, res) => {
   res.json({
     status: streamStatus,
     hasActiveProcess: !!currentStreamProcess

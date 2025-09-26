@@ -309,4 +309,4 @@ For issues and support:
 
 ---
 
-**Note**: This application requires a valid YouTube channel and stream key to function. Ensure you have the necessary permissions and comply with YouTube's terms of service.# ytlive
+**Note**: This application requires a valid YouTube channel and stream key to function. Ensure you have the necessary permissions and comply with YouTube's terms of service.
