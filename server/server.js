@@ -5,7 +5,6 @@ const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
 const mongoose = require('mongoose');
-require('dotenv').config();
 
 // Import routes and middleware
 const authRoutes = require('./routes/auth');

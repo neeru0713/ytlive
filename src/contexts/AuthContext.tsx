@@ -9,6 +9,7 @@ interface User {
   isAdmin?: boolean;
 }
 
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -37,15 +38,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
+const API_URL = import.meta.env.VITE_API_URL
 
   useEffect(() => {
     const initAuth = async () => {
       const storedToken = localStorage.getItem('token');
       if (storedToken) {
         try {
-          const response = await fetch('http://localhost:5000/api/auth/me', {
+          const response = await fetch(`${API_URL}/api/auth/me`, {
             headers: {
-              'Authorization': `Bearer ${storedToken}`,
+              Authorization: `Bearer ${storedToken}`,
             },
           });
 
@@ -70,7 +72,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await fetch('http://localhost:5000/api/auth/login', {
+    const response = await fetch(`${API_URL}/api/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -90,7 +92,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const register = async (username: string, email: string, password: string) => {
-    const response = await fetch('http://localhost:5000/api/auth/register', {
+    const response = await fetch(`${API_URL}/api/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -116,11 +118,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const updateStreamSettings = async (streamKey: string, streamUrl: string) => {
-    const response = await fetch('http://localhost:5000/api/auth/stream-settings', {
+    const response = await fetch(`${API_URL}/api/auth/stream-settings`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ streamKey, streamUrl }),
     });

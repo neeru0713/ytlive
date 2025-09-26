@@ -4,6 +4,9 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthForm from './components/AuthForm';
 import AdminDashboard from './components/AdminDashboard';
 
+// 👇 load from .env (REACT_APP_API_URL or fallback)
+const API_URL = import.meta.env.VITE_API_URL
+
 interface StreamingStatus {
   status: 'idle' | 'uploading' | 'starting' | 'live' | 'stopping' | 'error';
   message?: string;
@@ -66,7 +69,7 @@ function StreamingApp() {
         formData.append('videoLink', videoLink);
       }
 
-      const response = await fetch('http://localhost:5000/api/go-live', {
+      const response = await fetch(`${API_URL}/api/go-live`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -89,7 +92,7 @@ function StreamingApp() {
     try {
       setStreamingStatus({ status: 'stopping', message: 'Stopping stream...' });
       
-      const response = await fetch('http://localhost:5000/api/stop', {
+      const response = await fetch(`${API_URL}/api/stop`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

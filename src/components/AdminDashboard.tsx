@@ -64,6 +64,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+const API_URL = import.meta.env.VITE_API_URL
+
+
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
@@ -73,13 +76,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
   const fetchData = async () => {
     try {
       const [statsRes, usersRes, streamsRes] = await Promise.all([
-        fetch('http://localhost:5000/api/admin/stats', {
+        fetch(`${API_URL}/api/admin/stats`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:5000/api/admin/users', {
+        fetch(`${API_URL}/api/admin/users`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('http://localhost:5000/api/admin/streams', {
+        fetch(`${API_URL}/api/admin/streams`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -107,7 +110,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
 
   const stopStream = async (streamId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/streams/${streamId}/stop`, {
+      const response = await fetch(`${API_URL}/api/admin/streams/${streamId}/stop`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -125,7 +128,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
 
   const toggleUserAdmin = async (userId: string, isAdmin: boolean) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/admin/users/${userId}/admin`, {
+      const response = await fetch(`${API_URL}/api/admin/users/${userId}/admin`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
