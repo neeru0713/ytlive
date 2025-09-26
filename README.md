@@ -66,7 +66,7 @@ This will start both the frontend (Vite) and backend (Express) servers concurren
 
 2. **Access the application:**
    - Frontend: http://localhost:5173
-   - Backend API: http://localhost:3001
+   - Backend API: http://localhost:5000
 
 3. **Get your YouTube Stream Key:**
    - Go to [YouTube Studio](https://studio.youtube.com)
@@ -162,7 +162,7 @@ server {
 
     # Backend API
     location /api/ {
-        proxy_pass http://localhost:3001;
+        proxy_pass http://localhost:5000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -213,7 +213,7 @@ ExecStart=/usr/bin/node server.js
 Restart=always
 RestartSec=10
 Environment=NODE_ENV=production
-Environment=PORT=3001
+Environment=PORT=5000
 
 [Install]
 WantedBy=multi-user.target
@@ -230,7 +230,7 @@ sudo systemctl start streaming-app
 
 ### Environment Variables
 
-- `PORT`: Backend server port (default: 3001)
+- `PORT`: Backend server port (default: 5000)
 - `NODE_ENV`: Environment (development/production)
 - `UPLOAD_DIR`: Directory for uploaded files
 - `MAX_FILE_SIZE`: Maximum file upload size in bytes
