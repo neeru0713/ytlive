@@ -64,7 +64,7 @@ function StreamingApp() {
         formData.append('videoLink', videoLink);
       }
 
-      const response = await fetch('http://localhost:3001/api/go-live', {
+      const response = await fetch('http://localhost:5000/api/go-live', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -87,7 +87,7 @@ function StreamingApp() {
     try {
       setStreamingStatus({ status: 'stopping', message: 'Stopping stream...' });
       
-      const response = await fetch('http://localhost:3001/api/stop', {
+      const response = await fetch('http://localhost:5000/api/stop', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
