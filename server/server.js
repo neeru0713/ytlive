@@ -9,7 +9,9 @@ require('dotenv').config();
 
 // Import routes and middleware
 const authRoutes = require('./routes/auth');
+const adminRoutes = require('./routes/admin');
 const auth = require('./middleware/auth');
+const Stream = require('./models/Stream');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -35,6 +37,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/youtube-s
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -175,11 +178,18 @@ app.post('/api/go-live', auth, upload.single('videoFile'), async (req, res) => {
     streamStatus = "starting";
 
     let inputSource;
+    let videoSource;
+    let videoPath;
+
     if (req.file) {
       inputSource = req.file.path;
+      videoSource = 'file';
+      videoPath = req.file.path;
       console.log("Using uploaded file:", inputSource);
     } else if (videoLink) {
       inputSource = videoLink;
+      videoSource = 'url';
+      videoPath = videoLink;
       console.log("Using video URL:", inputSource);
     } else {
       return res
@@ -190,11 +200,34 @@ app.post('/api/go-live', auth, upload.single('videoFile'), async (req, res) => {
     if (!streamUrl.includes("rtmp://"))
       return res.status(400).send("Invalid RTMP stream URL");
 
+    // Create stream record
+    const stream = new Stream({
+      userId: req.user._id,
+      streamKey,
+      streamUrl,
+      videoSource,
+      videoPath,
+      status: 'starting'
+    });
+    await stream.save();
+
     try {
       await startFFmpegStream(inputSource, streamUrl, streamKey);
+      
+      // Update stream status
+      stream.status = 'live';
+      await stream.save();
+      
       res.json({ message: "Stream started successfully", status: "live" });
     } catch (error) {
       console.error("Failed to start stream:", error);
+      
+      // Update stream with error
+      stream.status = 'error';
+      stream.errorMessage = error.message;
+      stream.endedAt = new Date();
+      await stream.save();
+      
       streamStatus = "error";
       res.status(500).send(`Failed to start stream: ${error.message}`);
     }
@@ -209,8 +242,27 @@ app.post('/api/go-live', auth, upload.single('videoFile'), async (req, res) => {
 app.post('/api/stop', auth, async (req, res) => {
   try {
     streamStatus = "stopping";
+    
+    // Find and update active stream
+    const activeStream = await Stream.findOne({ 
+      userId: req.user._id, 
+      status: 'live' 
+    });
+    
+    if (activeStream) {
+      activeStream.status = 'stopping';
+      await activeStream.save();
+    }
+    
     await killStreamProcess();
     streamStatus = "idle";
+
+    // Update stream record
+    if (activeStream) {
+      activeStream.status = 'stopped';
+      activeStream.endedAt = new Date();
+      await activeStream.save();
+    }
 
     // Optional: cleanup old files
     try {

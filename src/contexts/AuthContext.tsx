@@ -6,6 +6,7 @@ interface User {
   email: string;
   streamKey?: string;
   streamUrl?: string;
+  isAdmin?: boolean;
 }
 
 interface AuthContextType {

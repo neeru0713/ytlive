@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Upload, Play, Square, AlertCircle, CheckCircle, Clock, Video, Link, Youtube, LogOut, Settings } from 'lucide-react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthForm from './components/AuthForm';
+import AdminDashboard from './components/AdminDashboard';
 
 interface StreamingStatus {
   status: 'idle' | 'uploading' | 'starting' | 'live' | 'stopping' | 'error';
@@ -11,6 +12,7 @@ interface StreamingStatus {
 
 function StreamingApp() {
   const { user, logout, updateStreamSettings, token } = useAuth();
+  const [showAdmin, setShowAdmin] = useState(false);
   const [streamUrl, setStreamUrl] = useState('rtmp://a.rtmp.youtube.com/live2/');
   const [streamKey, setStreamKey] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -143,6 +145,10 @@ function StreamingApp() {
     }
   };
 
+  if (showAdmin) {
+    return <AdminDashboard onBack={() => setShowAdmin(false)} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black text-white">
       {/* Header */}
@@ -157,6 +163,15 @@ function StreamingApp() {
             </div>
             <div className="flex items-center gap-4">
               <span className="text-gray-300">Welcome, {user?.username}</span>
+              {user?.isAdmin && (
+                <button
+                  onClick={() => setShowAdmin(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-white transition-colors"
+                >
+                  <Shield className="w-4 h-4" />
+                  Admin
+                </button>
+              )}
               <button
                 onClick={() => setShowSettings(!showSettings)}
                 className="p-2 text-gray-400 hover:text-white transition-colors"

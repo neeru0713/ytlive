@@ -29,6 +29,10 @@ const userSchema = new mongoose.Schema({
   streamUrl: {
     type: String,
     default: 'rtmp://a.rtmp.youtube.com/live2/'
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true
