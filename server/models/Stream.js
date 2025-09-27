@@ -21,6 +21,10 @@ const streamSchema = new mongoose.Schema({
   videoPath: {
     type: String // file path or URL
   },
+  loopVideo: {
+    type: Boolean,
+    default: false
+  },
   status: {
     type: String,
     enum: ['starting', 'live', 'stopping', 'stopped', 'error'],

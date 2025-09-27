@@ -206,6 +206,7 @@ app.post('/api/go-live', auth, upload.single('videoFile'), async (req, res) => {
       streamUrl,
       videoSource,
       videoPath,
+      loopVideo: shouldLoop,
       status: 'starting'
     });
     await stream.save();

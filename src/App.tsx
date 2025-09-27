@@ -362,6 +362,24 @@ function StreamingApp() {
                   />
                 </div>
               )}
+
+              {/* Loop Video Option */}
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={loopVideo}
+                    onChange={(e) => setLoopVideo(e.target.checked)}
+                    className="w-4 h-4 text-red-600 bg-gray-700 border-gray-600 rounded focus:ring-red-500 focus:ring-2"
+                  />
+                  <div>
+                    <span className="text-sm font-medium text-gray-300">Loop Video</span>
+                    <p className="text-xs text-gray-500">
+                      Continuously repeat the video during the stream
+                    </p>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
 

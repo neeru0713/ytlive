@@ -432,7 +432,14 @@ const API_URL = import.meta.env.VITE_API_URL
                     </div>
                     <div>
                       <p className="text-gray-400">Source</p>
-                      <p className="text-white capitalize">{stream.videoSource}</p>
+                      <p className="text-white capitalize">
+                        {stream.videoSource}
+                        {stream.loopVideo && (
+                          <span className="ml-2 px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded">
+                            LOOP
+                          </span>
+                        )}
+                      </p>
                     </div>
                   </div>
 
