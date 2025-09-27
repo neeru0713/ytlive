@@ -21,6 +21,7 @@ function StreamingApp() {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoLink, setVideoLink] = useState('');
   const [useFile, setUseFile] = useState(true);
+  const [loopVideo, setLoopVideo] = useState(false);
   const [streamingStatus, setStreamingStatus] = useState<StreamingStatus>({ status: 'idle' });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -68,6 +69,8 @@ function StreamingApp() {
       } else {
         formData.append('videoLink', videoLink);
       }
+      
+      formData.append('loopVideo', loopVideo.toString());
 
       const response = await fetch(`${API_URL}/api/go-live`, {
         method: 'POST',
