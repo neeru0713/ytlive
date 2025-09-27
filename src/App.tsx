@@ -3,6 +3,7 @@ import { Upload, Play, Square, AlertCircle, CheckCircle, Clock, Video, Link, You
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AuthForm from './components/AuthForm';
 import AdminDashboard from './components/AdminDashboard';
+import StreamHistory from './components/StreamHistory';
 
 // 👇 load from .env (REACT_APP_API_URL or fallback)
 const API_URL = import.meta.env.VITE_API_URL
@@ -449,6 +450,11 @@ function StreamingApp() {
               </ul>
             </div>
           </div>
+        </div>
+
+        {/* Stream History Section */}
+        <div className="mt-8">
+          <StreamHistory />
         </div>
       </div>
     </div>

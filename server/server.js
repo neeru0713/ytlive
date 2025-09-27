@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 // Import routes and middleware
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
+const streamRoutes = require('./routes/streams');
 const auth = require('./middleware/auth');
 const Stream = require('./models/Stream');
 
@@ -37,6 +38,7 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/youtube-s
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/streams', streamRoutes);
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, 'uploads');
