@@ -82,15 +82,22 @@ const killStreamProcess = () => {
 };
 
 // Start FFmpeg streaming
-const startFFmpegStream = (inputSource, streamUrl, streamKey) => {
+const startFFmpegStream = (inputSource, streamUrl, streamKey, shouldLoop = false) => {
   return new Promise((resolve, reject) => {
     // Convert Windows backslashes to forward slashes for FFmpeg
     if (inputSource.startsWith("C:"))
       inputSource = inputSource.replace(/\\/g, "/");
 
     const rtmpUrl = `${streamUrl.replace(/\/?$/, "/")}${streamKey}`;
-    const ffmpegArgs = [
-      "-re",
+    
+    let ffmpegArgs = ["-re"];
+    
+    // Add loop parameter if needed
+    if (shouldLoop) {
+      ffmpegArgs.push("-stream_loop", "-1");
+    }
+    
+    ffmpegArgs = ffmpegArgs.concat([
       "-i",
       inputSource,
       "-c:v",
@@ -116,7 +123,7 @@ const startFFmpegStream = (inputSource, streamUrl, streamKey) => {
       "-f",
       "flv",
       rtmpUrl,
-    ];
+    ]);
 
     console.log("Starting FFmpeg with args:", ffmpegArgs.join(" "));
 
@@ -169,7 +176,7 @@ const startFFmpegStream = (inputSource, streamUrl, streamKey) => {
 // Route: Start streaming
 app.post('/api/go-live', auth, upload.single('videoFile'), async (req, res) => {
   try {
-    const { streamUrl, streamKey, videoLink } = req.body;
+    const { streamUrl, streamKey, videoLink, loopVideo } = req.body;
     if (!streamUrl || !streamKey)
       return res.status(400).send("Stream URL and Stream Key are required");
 
@@ -179,6 +186,7 @@ app.post('/api/go-live', auth, upload.single('videoFile'), async (req, res) => {
     let inputSource;
     let videoSource;
     let videoPath;
+    const shouldLoop = loopVideo === 'true' || loopVideo === true;
 
     if (req.file) {
       inputSource = req.file.path;
@@ -212,7 +220,7 @@ app.post('/api/go-live', auth, upload.single('videoFile'), async (req, res) => {
     await stream.save();
 
     try {
-      await startFFmpegStream(inputSource, streamUrl, streamKey);
+      await startFFmpegStream(inputSource, streamUrl, streamKey, shouldLoop);
       
       // Update stream status
       stream.status = 'live';
