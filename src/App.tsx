@@ -15,7 +15,7 @@ interface StreamingStatus {
 }
 
 function StreamingApp() {
-  const { user, logout, updateStreamSettings, token } = useAuth();
+  const { user, logout, updateStreamSettings, firebaseUser } = useAuth();
   const [showAdmin, setShowAdmin] = useState(false);
   const [streamUrl, setStreamUrl] = useState('rtmp://a.rtmp.youtube.com/live2/');
   const [streamKey, setStreamKey] = useState('');
@@ -61,6 +61,7 @@ function StreamingApp() {
     try {
       setStreamingStatus({ status: useFile ? 'uploading' : 'starting', progress: 0 });
 
+      const token = await firebaseUser?.getIdToken();
       const formData = new FormData();
       formData.append('streamUrl', streamUrl);
       formData.append('streamKey', streamKey);
@@ -96,6 +97,7 @@ function StreamingApp() {
     try {
       setStreamingStatus({ status: 'stopping', message: 'Stopping stream...' });
       
+      const token = await firebaseUser?.getIdToken();
       const response = await fetch(`${API_URL}/api/stop`, {
         method: 'POST',
         headers: {
@@ -169,7 +171,7 @@ function StreamingApp() {
             </h1>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-gray-300">Welcome, {user?.username}</span>
+              <span className="text-gray-300">Welcome, {user?.displayName}</span>
               {user?.isAdmin && (
                 <button
                   onClick={() => setShowAdmin(true)}
@@ -462,16 +464,15 @@ function StreamingApp() {
 }
 
 function App() {
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   return (
     <AuthProvider>
-      <AuthContent authMode={authMode} setAuthMode={setAuthMode} />
+      <AuthContent />
     </AuthProvider>
   );
 }
 
-function AuthContent({ authMode, setAuthMode }: { authMode: 'login' | 'register', setAuthMode: (mode: 'login' | 'register') => void }) {
+function AuthContent() {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -484,10 +485,7 @@ function AuthContent({ authMode, setAuthMode }: { authMode: 'login' | 'register'
 
   if (!user) {
     return (
-      <AuthForm 
-        mode={authMode} 
-        onToggleMode={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} 
-      />
+      <AuthForm />
     );
   }
 

@@ -1,118 +1,22 @@
 const express = require('express');
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { admin } = require('../config/firebase');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
-
-// Register
-router.post('/register', async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-
-    // Validation
-    if (!username || !email || !password) {
-      return res.status(400).json({ message: 'Please provide all required fields' });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
-    }
-
-    // Check if user already exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ 
-        message: existingUser.email === email ? 'Email already registered' : 'Username already taken'
-      });
-    }
-
-    // Create new user
-    const user = new User({ username, email, password });
-    await user.save();
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
-    );
-
-    res.status(201).json({
-      message: 'User registered successfully',
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email
-      }
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ message: 'Server error during registration' });
-  }
-});
-
-// Login
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    // Validation
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Please provide email and password' });
-    }
-
-    // Find user
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // Check password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
-    );
-
-    res.json({
-      message: 'Login successful',
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        streamKey: user.streamKey,
-        streamUrl: user.streamUrl,
-        isAdmin: user.isAdmin
-      }
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error during login' });
-  }
-});
+const db = admin.firestore();
 
 // Get current user
 router.get('/me', auth, async (req, res) => {
   try {
     res.json({
       user: {
-        id: req.user._id,
-        username: req.user.username,
+        uid: req.user.uid,
         email: req.user.email,
-        streamKey: req.user.streamKey,
-        streamUrl: req.user.streamUrl
+        displayName: req.user.displayName,
+        emailVerified: req.user.emailVerified,
+        streamKey: req.user.streamKey || '',
+        streamUrl: req.user.streamUrl || 'rtmp://a.rtmp.youtube.com/live2/',
+        isAdmin: req.user.isAdmin || false
       }
     });
   } catch (error) {
@@ -126,24 +30,59 @@ router.put('/stream-settings', auth, async (req, res) => {
   try {
     const { streamKey, streamUrl } = req.body;
     
-    const user = await User.findById(req.user._id);
-    if (streamKey !== undefined) user.streamKey = streamKey;
-    if (streamUrl !== undefined) user.streamUrl = streamUrl;
+    const updateData = {};
+    if (streamKey !== undefined) updateData.streamKey = streamKey;
+    if (streamUrl !== undefined) updateData.streamUrl = streamUrl;
     
-    await user.save();
+    await db.collection('users').doc(req.user.uid).set(updateData, { merge: true });
     
     res.json({
       message: 'Stream settings updated successfully',
       user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        streamKey: user.streamKey,
-        streamUrl: user.streamUrl
+        uid: req.user.uid,
+        email: req.user.email,
+        displayName: req.user.displayName,
+        streamKey: streamKey || req.user.streamKey,
+        streamUrl: streamUrl || req.user.streamUrl,
+        isAdmin: req.user.isAdmin || false
       }
     });
   } catch (error) {
     console.error('Update stream settings error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Create user profile (called after Firebase Auth registration)
+router.post('/create-profile', auth, async (req, res) => {
+  try {
+    const { displayName } = req.body;
+    
+    const userData = {
+      email: req.user.email,
+      displayName: displayName || req.user.displayName || '',
+      streamKey: '',
+      streamUrl: 'rtmp://a.rtmp.youtube.com/live2/',
+      isAdmin: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    
+    await db.collection('users').doc(req.user.uid).set(userData, { merge: true });
+    
+    res.json({
+      message: 'Profile created successfully',
+      user: {
+        uid: req.user.uid,
+        email: req.user.email,
+        displayName: userData.displayName,
+        streamKey: userData.streamKey,
+        streamUrl: userData.streamUrl,
+        isAdmin: userData.isAdmin
+      }
+    });
+  } catch (error) {
+    console.error('Create profile error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

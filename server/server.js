@@ -4,14 +4,13 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
-const mongoose = require('mongoose');
+const { admin } = require('./config/firebase');
 
 // Import routes and middleware
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const streamRoutes = require('./routes/streams');
 const auth = require('./middleware/auth');
-const Stream = require('./models/Stream');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -22,18 +21,14 @@ const FFMPEG_PATH = process.env.FFMPEG_PATH || "C:\\ffmpeg\\bin\\ffmpeg.exe";
 // Global variables
 let currentStreamProcess = null;
 let streamStatus = "idle";
+let currentStreamId = null;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/youtube-streaming', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => console.error('MongoDB connection error:', err));
+// Firestore database
+const db = admin.firestore();
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -209,36 +204,46 @@ app.post('/api/go-live', auth, upload.single('videoFile'), async (req, res) => {
     if (!streamUrl.includes("rtmp://"))
       return res.status(400).send("Invalid RTMP stream URL");
 
-    // Create stream record
-    const stream = new Stream({
-      userId: req.user._id,
+    // Create stream record in Firestore
+    const streamData = {
+      userId: req.user.uid,
       streamKey,
       streamUrl,
       videoSource,
       videoPath,
       loopVideo: shouldLoop,
-      status: 'starting'
-    });
-    await stream.save();
+      status: 'starting',
+      startedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    const streamRef = await db.collection('streams').add(streamData);
+    currentStreamId = streamRef.id;
 
     try {
       await startFFmpegStream(inputSource, streamUrl, streamKey, shouldLoop);
       
       // Update stream status
-      stream.status = 'live';
-      await stream.save();
+      await db.collection('streams').doc(currentStreamId).update({
+        status: 'live',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
       
       res.json({ message: "Stream started successfully", status: "live" });
     } catch (error) {
       console.error("Failed to start stream:", error);
       
       // Update stream with error
-      stream.status = 'error';
-      stream.errorMessage = error.message;
-      stream.endedAt = new Date();
-      await stream.save();
+      await db.collection('streams').doc(currentStreamId).update({
+        status: 'error',
+        errorMessage: error.message,
+        endedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
       
       streamStatus = "error";
+      currentStreamId = null;
       res.status(500).send(`Failed to start stream: ${error.message}`);
     }
   } catch (error) {
@@ -254,24 +259,33 @@ app.post('/api/stop', auth, async (req, res) => {
     streamStatus = "stopping";
     
     // Find and update active stream
-    const activeStream = await Stream.findOne({ 
-      userId: req.user._id, 
-      status: 'live' 
-    });
-    
-    if (activeStream) {
-      activeStream.status = 'stopping';
-      await activeStream.save();
+    if (currentStreamId) {
+      await db.collection('streams').doc(currentStreamId).update({
+        status: 'stopping',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
     }
     
     await killStreamProcess();
     streamStatus = "idle";
 
     // Update stream record
-    if (activeStream) {
-      activeStream.status = 'stopped';
-      activeStream.endedAt = new Date();
-      await activeStream.save();
+    if (currentStreamId) {
+      const streamDoc = await db.collection('streams').doc(currentStreamId).get();
+      if (streamDoc.exists) {
+        const streamData = streamDoc.data();
+        const startTime = streamData.startedAt?.toDate?.() || new Date();
+        const endTime = new Date();
+        const duration = Math.floor((endTime - startTime) / 1000);
+
+        await db.collection('streams').doc(currentStreamId).update({
+          status: 'stopped',
+          endedAt: admin.firestore.FieldValue.serverTimestamp(),
+          duration: duration,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+      currentStreamId = null;
     }
 
     // Optional: cleanup old files

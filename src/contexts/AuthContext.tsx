@@ -1,23 +1,32 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { 
+  signInWithPopup, 
+  signOut, 
+  onAuthStateChanged, 
+  sendEmailVerification,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { auth, googleProvider } from '../config/firebase';
 
 interface User {
-  id: string;
-  username: string;
+  uid: string;
   email: string;
+  displayName: string;
+  emailVerified: boolean;
   streamKey?: string;
   streamUrl?: string;
   isAdmin?: boolean;
 }
 
-
 interface AuthContextType {
   user: User | null;
-  token: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
+  firebaseUser: FirebaseUser | null;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
+  sendVerificationEmail: () => Promise<void>;
   updateStreamSettings: (streamKey: string, streamUrl: string) => Promise<void>;
   loading: boolean;
+  needsEmailVerification: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,114 +45,154 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
-const API_URL = import.meta.env.VITE_API_URL
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+
+  const API_URL = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
-    const initAuth = async () => {
-      const storedToken = localStorage.getItem('token');
-      if (storedToken) {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setFirebaseUser(firebaseUser);
+      
+      if (firebaseUser) {
+        if (!firebaseUser.emailVerified) {
+          setNeedsEmailVerification(true);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
+        setNeedsEmailVerification(false);
+        
         try {
+          // Get Firebase ID token
+          const token = await firebaseUser.getIdToken();
+          
+          // Get user profile from backend
           const response = await fetch(`${API_URL}/api/auth/me`, {
             headers: {
-              Authorization: `Bearer ${storedToken}`,
+              Authorization: `Bearer ${token}`,
             },
           });
 
           if (response.ok) {
             const data = await response.json();
             setUser(data.user);
-            setToken(storedToken);
-          } else {
-            localStorage.removeItem('token');
-            setToken(null);
+          } else if (response.status === 404) {
+            // User profile doesn't exist, create it
+            await createUserProfile(token, firebaseUser.displayName || '');
           }
         } catch (error) {
-          console.error('Auth initialization error:', error);
-          localStorage.removeItem('token');
-          setToken(null);
+          console.error('Error fetching user data:', error);
         }
+      } else {
+        setUser(null);
+        setNeedsEmailVerification(false);
       }
+      
       setLoading(false);
-    };
+    });
 
-    initAuth();
+    return unsubscribe;
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
+  const createUserProfile = async (token: string, displayName: string) => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/create-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ displayName }),
+      });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Login failed');
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data.user);
+      }
+    } catch (error) {
+      console.error('Error creating user profile:', error);
     }
-
-    localStorage.setItem('token', data.token);
-    setToken(data.token);
-    setUser(data.user);
   };
 
-  const register = async (username: string, email: string, password: string) => {
-    const response = await fetch(`${API_URL}/api/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username, email, password }),
-    });
+  const login = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      
+      if (!result.user.emailVerified) {
+        await sendEmailVerification(result.user);
+        setNeedsEmailVerification(true);
+        return;
+      }
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'Registration failed');
+      // Profile will be created/fetched in the auth state change listener
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw new Error(error.message || 'Login failed');
     }
-
-    localStorage.setItem('token', data.token);
-    setToken(data.token);
-    setUser(data.user);
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    setToken(null);
-    setUser(null);
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      setUser(null);
+      setFirebaseUser(null);
+      setNeedsEmailVerification(false);
+    } catch (error: any) {
+      console.error('Logout error:', error);
+      throw new Error(error.message || 'Logout failed');
+    }
+  };
+
+  const sendVerificationEmail = async () => {
+    if (firebaseUser && !firebaseUser.emailVerified) {
+      try {
+        await sendEmailVerification(firebaseUser);
+      } catch (error: any) {
+        console.error('Error sending verification email:', error);
+        throw new Error(error.message || 'Failed to send verification email');
+      }
+    }
   };
 
   const updateStreamSettings = async (streamKey: string, streamUrl: string) => {
-    const response = await fetch(`${API_URL}/api/auth/stream-settings`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ streamKey, streamUrl }),
-    });
+    if (!firebaseUser) throw new Error('Not authenticated');
 
-    const data = await response.json();
+    try {
+      const token = await firebaseUser.getIdToken();
+      const response = await fetch(`${API_URL}/api/auth/stream-settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ streamKey, streamUrl }),
+      });
 
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to update stream settings');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update stream settings');
+      }
+
+      setUser(data.user);
+    } catch (error: any) {
+      console.error('Update stream settings error:', error);
+      throw new Error(error.message || 'Failed to update stream settings');
     }
-
-    setUser(data.user);
   };
 
   const value = {
     user,
-    token,
+    firebaseUser,
     login,
-    register,
     logout,
+    sendVerificationEmail,
     updateStreamSettings,
     loading,
+    needsEmailVerification,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

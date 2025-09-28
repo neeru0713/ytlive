@@ -16,18 +16,18 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 
 interface User {
-  _id: string;
-  username: string;
+  uid: string;
+  displayName: string;
   email: string;
   isAdmin: boolean;
   createdAt: string;
 }
 
 interface Stream {
-  _id: string;
+  id: string;
   userId: {
-    _id: string;
-    username: string;
+    uid: string;
+    displayName: string;
     email: string;
   };
   streamKey: string;
@@ -56,7 +56,7 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBack }) => {
-  const { token } = useAuth();
+  const { firebaseUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'streams'>('overview');
   const [stats, setStats] = useState<Stats | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -75,6 +75,7 @@ const API_URL = import.meta.env.VITE_API_URL
 
   const fetchData = async () => {
     try {
+      const token = await firebaseUser?.getIdToken();
       const [statsRes, usersRes, streamsRes] = await Promise.all([
         fetch(`${API_URL}/api/admin/stats`, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -110,6 +111,7 @@ const API_URL = import.meta.env.VITE_API_URL
 
   const stopStream = async (streamId: string) => {
     try {
+      const token = await firebaseUser?.getIdToken();
       const response = await fetch(`${API_URL}/api/admin/streams/${streamId}/stop`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -128,6 +130,7 @@ const API_URL = import.meta.env.VITE_API_URL
 
   const toggleUserAdmin = async (userId: string, isAdmin: boolean) => {
     try {
+      const token = await firebaseUser?.getIdToken();
       const response = await fetch(`${API_URL}/api/admin/users/${userId}/admin`, {
         method: 'PUT',
         headers: {
@@ -302,11 +305,11 @@ const API_URL = import.meta.env.VITE_API_URL
               <h3 className="text-xl font-semibold mb-6">Recent Streams</h3>
               <div className="space-y-4">
                 {streams.slice(0, 5).map((stream) => (
-                  <div key={stream._id} className="flex items-center justify-between p-4 bg-gray-700/30 rounded-lg">
+                  <div key={stream.id} className="flex items-center justify-between p-4 bg-gray-700/30 rounded-lg">
                     <div className="flex items-center gap-4">
                       {getStatusIcon(stream.status)}
                       <div>
-                        <p className="font-medium">{stream.userId.username}</p>
+                        <p className="font-medium">{stream.userId.displayName}</p>
                         <p className="text-sm text-gray-400">
                           {new Date(stream.startedAt).toLocaleString()}
                         </p>
@@ -318,7 +321,7 @@ const API_URL = import.meta.env.VITE_API_URL
                       </span>
                       {stream.status === 'live' && (
                         <button
-                          onClick={() => stopStream(stream._id)}
+                          onClick={() => stopStream(stream.id)}
                           className="p-2 text-red-400 hover:text-red-300 transition-colors"
                         >
                           <StopCircle className="w-4 h-4" />
@@ -348,13 +351,13 @@ const API_URL = import.meta.env.VITE_API_URL
                 </thead>
                 <tbody>
                   {users.map((user) => (
-                    <tr key={user._id} className="border-b border-gray-700/50">
+                    <tr key={user.uid} className="border-b border-gray-700/50">
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-sm font-bold">
-                            {user.username.charAt(0).toUpperCase()}
+                            {user.displayName?.charAt(0).toUpperCase() || 'U'}
                           </div>
-                          <span className="font-medium">{user.username}</span>
+                          <span className="font-medium">{user.displayName || 'Unknown'}</span>
                         </div>
                       </td>
                       <td className="py-3 px-4 text-gray-400">{user.email}</td>
@@ -372,7 +375,7 @@ const API_URL = import.meta.env.VITE_API_URL
                       </td>
                       <td className="py-3 px-4">
                         <button
-                          onClick={() => toggleUserAdmin(user._id, !user.isAdmin)}
+                          onClick={() => toggleUserAdmin(user.uid, !user.isAdmin)}
                           className={`p-2 rounded-lg transition-colors ${
                             user.isAdmin
                               ? 'text-red-400 hover:text-red-300 hover:bg-red-400/10'
@@ -396,12 +399,12 @@ const API_URL = import.meta.env.VITE_API_URL
             <h3 className="text-xl font-semibold mb-6">Stream Management</h3>
             <div className="space-y-4">
               {streams.map((stream) => (
-                <div key={stream._id} className="p-4 bg-gray-700/30 rounded-lg">
+                <div key={stream.id} className="p-4 bg-gray-700/30 rounded-lg">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-4">
                       {getStatusIcon(stream.status)}
                       <div>
-                        <p className="font-medium">{stream.userId.username}</p>
+                        <p className="font-medium">{stream.userId.displayName}</p>
                         <p className="text-sm text-gray-400">{stream.userId.email}</p>
                       </div>
                     </div>
@@ -411,7 +414,7 @@ const API_URL = import.meta.env.VITE_API_URL
                       </span>
                       {stream.status === 'live' && (
                         <button
-                          onClick={() => stopStream(stream._id)}
+                          onClick={() => stopStream(stream.id)}
                           className="flex items-center gap-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors"
                         >
                           <StopCircle className="w-4 h-4" />

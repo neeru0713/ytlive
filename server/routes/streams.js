@@ -1,23 +1,42 @@
 const express = require('express');
-const Stream = require('../models/Stream');
+const { admin } = require('../config/firebase');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
+const db = admin.firestore();
 
 // Get user's stream history
 router.get('/history', auth, async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-    const streams = await Stream.find({ userId: req.user._id })
-      .sort({ createdAt: -1 })
-      .skip(skip)
+    const streamsQuery = db.collection('streams')
+      .where('userId', '==', req.user.uid)
+      .orderBy('createdAt', 'desc')
       .limit(limit)
-      .select('-streamKey'); // Don't send stream key for security
+      .offset(offset);
 
-    const totalStreams = await Stream.countDocuments({ userId: req.user._id });
+    const streamsSnapshot = await streamsQuery.get();
+    const streams = [];
+    
+    streamsSnapshot.forEach(doc => {
+      const data = doc.data();
+      streams.push({
+        id: doc.id,
+        ...data,
+        // Convert Firestore timestamps to ISO strings
+        startedAt: data.startedAt?.toDate?.()?.toISOString() || data.startedAt,
+        endedAt: data.endedAt?.toDate?.()?.toISOString() || data.endedAt,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt
+      });
+    });
+
+    // Get total count for pagination
+    const totalQuery = db.collection('streams').where('userId', '==', req.user.uid);
+    const totalSnapshot = await totalQuery.get();
+    const totalStreams = totalSnapshot.size;
     const totalPages = Math.ceil(totalStreams / limit);
 
     res.json({
@@ -39,10 +58,27 @@ router.get('/history', auth, async (req, res) => {
 // Get current stream status for user
 router.get('/current', auth, async (req, res) => {
   try {
-    const currentStream = await Stream.findOne({ 
-      userId: req.user._id, 
-      status: { $in: ['starting', 'live', 'stopping'] }
-    }).select('-streamKey');
+    const currentStreamQuery = db.collection('streams')
+      .where('userId', '==', req.user.uid)
+      .where('status', 'in', ['starting', 'live', 'stopping'])
+      .orderBy('createdAt', 'desc')
+      .limit(1);
+
+    const currentStreamSnapshot = await currentStreamQuery.get();
+    let currentStream = null;
+
+    if (!currentStreamSnapshot.empty) {
+      const doc = currentStreamSnapshot.docs[0];
+      const data = doc.data();
+      currentStream = {
+        id: doc.id,
+        ...data,
+        // Convert Firestore timestamps to ISO strings
+        startedAt: data.startedAt?.toDate?.()?.toISOString() || data.startedAt,
+        endedAt: data.endedAt?.toDate?.()?.toISOString() || data.endedAt,
+        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt
+      };
+    }
 
     res.json({
       currentStream,

@@ -16,7 +16,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 
 interface Stream {
-  _id: string;
+  id: string;
   streamUrl: string;
   videoSource: 'file' | 'url';
   videoPath?: string;
@@ -46,7 +46,7 @@ interface CurrentStreamData {
 }
 
 const StreamHistory: React.FC = () => {
-  const { token } = useAuth();
+  const { firebaseUser } = useAuth();
   const [historyData, setHistoryData] = useState<StreamHistoryData | null>(null);
   const [currentStream, setCurrentStream] = useState<Stream | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,6 +58,7 @@ const StreamHistory: React.FC = () => {
 
   const fetchStreamHistory = async (page = 1) => {
     try {
+      const token = await firebaseUser?.getIdToken();
       const response = await fetch(`${API_URL}/api/streams/history?page=${page}&limit=10`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -79,6 +80,7 @@ const StreamHistory: React.FC = () => {
 
   const fetchCurrentStream = async () => {
     try {
+      const token = await firebaseUser?.getIdToken();
       const response = await fetch(`${API_URL}/api/streams/current`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -123,7 +125,7 @@ const StreamHistory: React.FC = () => {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [token]);
+  }, [firebaseUser]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -264,7 +266,7 @@ const StreamHistory: React.FC = () => {
         ) : (
           <>
             {historyData?.streams.map((stream) => (
-              <div key={stream._id} className="p-4 bg-gray-700/30 rounded-lg">
+              <div key={stream.id} className="p-4 bg-gray-700/30 rounded-lg">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
                     {getStatusIcon(stream.status)}
