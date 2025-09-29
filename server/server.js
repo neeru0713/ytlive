@@ -4,6 +4,7 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs').promises;
 const { spawn } = require('child_process');
+require('dotenv').config();
 const { admin } = require('./config/firebase');
 
 // Import routes and middleware

@@ -6,7 +6,7 @@ import AdminDashboard from './components/AdminDashboard';
 import StreamHistory from './components/StreamHistory';
 
 // 👇 load from .env (REACT_APP_API_URL or fallback)
-const API_URL = import.meta.env.VITE_API_URL
+const API_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000'
 
 interface StreamingStatus {
   status: 'idle' | 'uploading' | 'starting' | 'live' | 'stopping' | 'error';
