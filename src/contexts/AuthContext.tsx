@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
 
-  const API_URL = import.meta.env.VITE_BACKEND_URL;
+  const API_URL = import.meta.env.PROD ? import.meta.env.VITE_BACKEND_URL : '';
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
