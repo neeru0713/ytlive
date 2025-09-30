@@ -3,9 +3,9 @@ import {
   signInWithPopup, 
   signOut, 
   onAuthStateChanged, 
-  sendEmailVerification,
-  User as FirebaseUser
+  sendEmailVerification
 } from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
 import { auth, googleProvider } from '../config/firebase';
 
 interface User {
