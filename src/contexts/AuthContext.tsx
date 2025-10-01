@@ -67,7 +67,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         try {
           // Get Firebase ID token
-          const token = await firebaseUser.getIdToken();
+          const token = await firebaseUser.getIdToken(true); // Force refresh token
           
           // Get user profile from backend
           const response = await fetch(`${API_URL}/api/auth/me`, {
@@ -82,6 +82,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           } else if (response.status === 404) {
             // User profile doesn't exist, create it
             await createUserProfile(token, firebaseUser.displayName || '');
+          } else {
+            console.error('Auth error:', response.status, await response.text());
           }
         } catch (error) {
           console.error('Error fetching user data:', error);
@@ -111,6 +113,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
+      } else {
+        console.error('Create profile error:', response.status, await response.text());
       }
     } catch (error) {
       console.error('Error creating user profile:', error);
